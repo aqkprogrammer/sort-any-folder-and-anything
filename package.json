@@ -1,7 +1,7 @@
 {
   "name": "photo-sorter",
   "productName": "Photo Sorter",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Watch a messy folder of photos, videos and documents sort itself. On-device AI, no uploads.",
   "main": "electron/main.cjs",
   "scripts": {

@@ -5,7 +5,7 @@
 [![Download for Mac](https://img.shields.io/github/v/release/aqkprogrammer/sort-any-folder-and-anything?label=download%20for%20Mac&logo=apple&style=for-the-badge&color=111)](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest)
 
 **▶ Try it now: [aqkprogrammer.github.io/sort-any-folder-and-anything](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)**: the demo folder loads instantly, press **Sort**.
-**⬇ Mac app:** [Photo-Sorter-2.0.0-arm64.dmg](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/download/v2.0.0/Photo-Sorter-2.0.0-arm64.dmg) (Apple Silicon, 115 MB).
+**⬇ Mac app:** [Photo-Sorter-2.1.0-arm64.dmg](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/download/v2.1.0/Photo-Sorter-2.1.0-arm64.dmg) (Apple Silicon, 115 MB).
 
 **Photo Sorter** turns a messy folder into a tidy one, and lets you watch it happen. Photos, videos, music, voice memos, PDFs, Word/Excel/PowerPoint files, code, archives, installers: every file becomes a tile in a floating pile. Press **Sort** and each tile flies into its folder.
 
@@ -106,7 +106,7 @@ The web app is plain static files (`index.html` + `src/`), with no build step. A
 | **Netlify** | Drag the repo folder onto [app.netlify.com/drop](https://app.netlify.com/drop), or connect the repo with publish directory `.` and no build command. |
 | **Vercel** | `npx vercel --prod` in the repo root (framework preset: *Other*, no build command). |
 | **Cloudflare Pages** | Connect the repo, build command empty, output directory `/`. |
-| **Mac app** (released) | `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist` builds an unsigned `dist/Photo Sorter-<version>-arm64.dmg`. Attach it to a [GitHub Release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest) with `gh release create vX.Y.Z <dmg>`. The current build is on [v2.0.0](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest). |
+| **Mac app** (released) | `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist` builds an unsigned `dist/Photo Sorter-<version>-arm64.dmg`. Attach it to a [GitHub Release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest) with `gh release create vX.Y.Z <dmg>`. The current build is on [v2.1.0](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest). |
 
 What the hosted version can and can't do:
 - Everything runs in the visitor's browser. Their files never reach the server; the host only serves the code.
