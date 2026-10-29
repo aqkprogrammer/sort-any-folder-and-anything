@@ -28,7 +28,9 @@ It runs entirely on your machine. The AI that recognises what's *in* your photos
 | **Four views** | **Folders**, **Rainbow** (every file arranged by colour), **Timeline** (a histogram of files per month, from EXIF dates) and **Map** (photos placed by GPS). |
 | **Moves the real files, with undo** | In Chrome/Edge/Arc or the Mac app, **Move files** puts everything into `Sorted/<Folder>/` inside the chosen folder. Nothing is overwritten or deleted, and **Undo moves** puts every file back. |
 | **Mac app** | Menu-bar icon, native file moves, **Quick Look** previews (HEIC, RAW, Pages, Keynote, PSD…), read-only **Photos library** mode, and **auto-sort for new downloads** with a notification for each file. |
-| **Polish** | WebGL rendering (smooth up to 10,000 files), light/dark/auto theme, optional sound, Replay, keyboard shortcuts, a "Why is this here?" reason on every file. |
+| **Sound design** | Generated live with the Web Audio API, no audio files. Each folder has its own note in a pentatonic scale, so every sort plays a unique melody, panned left or right by where the tile lands. Whooshes on take-off, a shimmer when sorting starts, a bell chord and pad when it finishes, plus small sounds for drag, drop, search and windows. All of it goes through a compressor and a synthetic reverb. |
+| **Motion** | Frame-rate-independent springs. The pile slowly swirls like a galaxy and spirals in on load. Tiles fly in arcs with a little spin, leave colour trails, and land with a damped wobble and a burst of sparks. The pile inhales before a sort, clicks send ripples, and finishing rains confetti. Folders glow in their own colour as they fill. |
+| **Polish** | WebGL rendering (smooth up to 10,000 files), drifting aurora background, cursor spotlight, glass cards with a sheen that follows the mouse, sliding view switcher, folder windows that zoom out of the card you clicked, light/dark/auto theme, Replay, keyboard shortcuts, a "Why is this here?" reason on every file. Respects *reduce motion*. |
 
 <p align="center">
   <img src="docs/screenshots/04-rainbow.png" width="49%" alt="Rainbow view">
@@ -159,6 +161,7 @@ src/
   views.js            Rainbow and Timeline layouts, Leaflet map with thumbnail clustering
   files.js            folder sources (browser / picker / desktop), moves with undo, shell-script export
   demo.js · draw.js   the procedurally drawn demo Downloads folder (no image assets)
+  sound.js            Web Audio instruments: plucks, bells, whooshes, pads, reverb
   util.js · styles.css
 electron/
   main.cjs            app:// + localfile:// protocols (with HTTP Range), IPC, Quick Look, tray, Downloads watcher, smoke test

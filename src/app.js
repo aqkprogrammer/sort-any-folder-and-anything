@@ -8,11 +8,13 @@ import { buildDemo } from './demo.js';
 import { Engine } from './engine.js';
 import { AI } from './ai.js';
 import { rainbowLayout, timelineLayout, MapView } from './views.js';
+import { Sound } from './sound.js';
 import * as Files from './files.js';
 
 const board = $('#board'), pileArea = $('#pileArea'), stage = $('#stage'), desktop = window.desktop || null;
 const engine = new Engine($('#layer'));
 const ai = new AI();
+const snd = new Sound();
 const S = {
   mode: 'demo', source: null, items: [], folders: [], cards: {}, phase: 'boot', view: 'folders',
   aiOn: false, vectors: null, custom: store.get('custom', []), corrections: store.get('corrections', {}),
@@ -29,27 +31,27 @@ function urlOf(it) { return it._url ??= URL.createObjectURL(it.preview); }
 let statusAt = 0;
 function setStatus(text, kind = '', force = true) {
   const now = performance.now(); if (!force && now - statusAt < 40) return; statusAt = now;
-  $('#statusText').textContent = text; $('#status').className = 'status ' + kind;
+  const el = $('#statusText'); el.textContent = text; $('#status').className = 'status ' + kind;
+  if (force) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
 }
-const progress = p => { $('#progress').style.width = clamp(p, 0, 1) * 100 + '%'; };
+const progress = p => { const el = $('#progress'); el.style.width = clamp(p, 0, 1) * 100 + '%'; el.classList.toggle('live', p > 0 && p < 1); };
+const flash = el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+const boardPan = x => clamp(x / Math.max(1, board.clientWidth) * 2 - 1, -1, 1);
+const hex = c => parseInt(c.slice(1), 16);
+// Each folder gets its own accent: pinks/corals for photos, violets for media, blues/teals for documents.
+const SECTION_HUES = { photo: [330, 20], media: [255, 300], docs: [195, 230], stage: [345, 345] };
+function folderColor(f, i, n) { const [a, b] = SECTION_HUES[f.section] || [330, 330], h = a + (b - a) * (n > 1 ? i / (n - 1) : 0); return hslHex(h, 72, 62); }
+function hslHex(h, s, l) { s /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); return '#' + [f(0), f(8), f(4)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 
 function showStats() {
   const real = S.items.filter(i => i.dupOf == null), n = k => real.filter(i => k.includes(i.kind)).length;
   countUp($('#sTotal'), S.items.length); countUp($('#sPhotos'), n(['photo'])); countUp($('#sMedia'), n(['video', 'audio'])); countUp($('#sDocs'), n(['doc']));
   $('#sFolders').textContent = S.made; $('#sDupes').textContent = S.dupes; $('#sFree').textContent = fmtBytes(S.freed);
+  ['#sTotal', '#sPhotos', '#sMedia', '#sDocs'].forEach((id, i) => setTimeout(() => flash($(id)), i * 90));
 }
 
-let actx = null, soundOn = false, lastTick = 0;
 const SPK_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
 const SPK_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 10l4 4M20 10l-4 4"/></svg>';
-const SCALE = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760];
-function tick(freq) {
-  if (!soundOn) return; const n = performance.now(); if (n - lastTick < 30) return; lastTick = n;
-  actx ??= new AudioContext(); const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
-  o.type = 'sine'; o.frequency.value = freq; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.045, t + .006); g.gain.exponentialRampToValueAtTime(.0001, t + .12);
-  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + .13);
-}
-const chord = () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => { lastTick = 0; tick(f); }, i * 90));
 
 const THEMES = ['auto', 'light', 'dark'];
 const THEME_ICON = {
@@ -62,6 +64,7 @@ function applyTheme() {
   if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme;
   $('#themeBtn').innerHTML = THEME_ICON[theme]; $('#themeBtn').title = `Theme: ${theme}`;
   if (S.view === 'map') mapView.show(S.items, isDark());
+  engine.setDark?.(isDark());
 }
 const isDark = () => theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
 
@@ -95,13 +98,17 @@ function buildCards() {
   S.cards = {};
   for (const id of ['photoFolders', 'mediaFolders', 'docFolders']) $('#' + id).innerHTML = '';
   const host = { photo: $('#photoFolders'), media: $('#mediaFolders'), docs: $('#docFolders') };
-  for (const f of S.folders) {
+  const bySection = {};
+  S.folders.forEach(f => (bySection[f.section] ??= []).push(f));
+  for (const [i, f] of S.folders.entries()) {
     const el = f.id === 'dupes' ? $('#dupesCard') : document.createElement('div');
+    const list = bySection[f.section], color = folderColor(f, list.indexOf(f), list.length);
+    el.style.setProperty('--i', i); el.style.setProperty('--c', color);
     el.className = 'folder' + (f.id === 'dupes' ? ' dupes' : '') + (f.custom ? ' custom' : '');
     el.dataset.id = f.id;
     el.innerHTML = `<div class="fhead">${FOLDER_SVG}<img alt=""><span class="fname">${esc(f.name)}</span><span class="count">0</span></div><div class="thumbs"></div>`;
     if (f.id !== 'dupes') host[f.section].append(el);
-    S.cards[f.id] = { f, el, thumbs: el.querySelector('.thumbs'), countEl: el.querySelector('.count'), members: [], n: 0, rect: null, ts: 18, bump: 0 };
+    S.cards[f.id] = { f, el, thumbs: el.querySelector('.thumbs'), countEl: el.querySelector('.count'), members: [], n: 0, rect: null, ts: 18, bump: 0, color, tint: hex(color), note: i };
   }
 }
 
@@ -173,7 +180,7 @@ async function startBoard(statusMsg) {
   await engine.setItems(S.items, p => progress(p));
   setBusy(false); progress(0);
   relayout(false); showStats();
-  $('#sortLabel').textContent = 'Sort'; $('#caption').textContent = 'a total mess'; $('#hint').style.opacity = 1;
+  $('#sortLabel').textContent = 'Sort'; setCaption('a total mess'); $('#hint').style.opacity = 1;
   $('#resetBtn').disabled = true; $('#sortBtn').disabled = true; updateTools();
   setStatus('Scanning…', 'busy');
   await sleep(1500);
@@ -224,10 +231,11 @@ function startSort(order) {
   S.phase = 'sorting'; S.landed = S.made = S.dupes = S.freed = 0; S.sortStart = performance.now();
   for (const c of Object.values(S.cards)) { c.members = []; c.n = 0; c.countEl.textContent = '0'; c.el.classList.remove('live', 'has-cover'); }
   $('#sortBtn').classList.add('running'); $('#sortLabel').textContent = 'Sorting'; $('#sortBtn').disabled = true; $('#resetBtn').disabled = true;
-  setViewsEnabled(false); stage.classList.add('sorting'); $('#caption').textContent = 'sorting it out…'; $('#hint').style.opacity = 0;
+  setViewsEnabled(false); stage.classList.add('sorting'); setCaption('sorting it out…'); $('#hint').style.opacity = 0;
+  engine.inhale(.5, 420); engine.ripple(engine.pile.cx, engine.pile.cy, 0xb48cf2, 2.2); snd.sortStart();
   measure();
   const tiles = order || shuffle([...engine.tiles]); S.lastOrder = tiles;
-  const gap = clamp(4600 / tiles.length, .35, 24), t0 = performance.now() + 350;
+  const gap = clamp(4600 / tiles.length, .35, 24), t0 = performance.now() + 520;
   tiles.forEach((t, i) => engine.at(t0 + i * gap, now => launch(t, now)));
 }
 
@@ -236,7 +244,9 @@ function launch(t, now) {
   t.card = card; card.members.push(t);
   t.jit = { slot: Math.floor(Math.random() * 1e6), dx: rnd(-5, 5), dy: rnd(-4, 4), r: rnd(-14, 14) };
   t.landed = false;
+  t.color = card.tint;
   engine.flyTo(t, slotPos(t), { now, onLand: land });
+  snd.launch(boardPan(t.x));
   setStatus(`${card.f.name}  ←  ${t.item.name}`, 'busy', false);
 }
 
@@ -248,8 +258,10 @@ function land(t) {
   if (c.f.id === 'dupes') $('#sDupes').textContent = ++S.dupes;
   if (c.f.id === 'dupes' || c.f.id === 'junk') { S.freed += t.item.size || 0; $('#sFree').textContent = fmtBytes(S.freed); }
   const now = performance.now();
-  if (now - c.bump > 160) { c.bump = now; c.el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 240 }); }
-  tick(SCALE[Object.keys(S.cards).indexOf(c.f.id) % SCALE.length]);
+  if (now - c.bump > 160) { c.bump = now; c.el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'cubic-bezier(.34,1.56,.64,1)' }); c.countEl.classList.remove('bump'); void c.countEl.offsetWidth; c.countEl.classList.add('bump'); }
+  if (c.n === 1) c.el.classList.add('awake');
+  engine.sparks(t.x, t.y, c.tint, clamp(Math.round(2600 / engine.tiles.length), 1, 7), 2.6);
+  snd.land(c.note, boardPan(t.x));
   progress(++S.landed / engine.tiles.length);
   if (S.landed === engine.tiles.length) finishSort();
 }
@@ -258,13 +270,14 @@ function finishSort() {
   S.phase = 'sorted';
   const secs = ((performance.now() - S.sortStart) / 1000).toFixed(1);
   $('#sortBtn').classList.remove('running'); $('#sortLabel').textContent = 'Sorted'; $('#resetBtn').disabled = false;
-  stage.classList.remove('sorting'); $('#caption').textContent = 'all sorted ✦'; setViewsEnabled(true);
+  stage.classList.remove('sorting'); setCaption('all sorted ✦'); setViewsEnabled(true);
+  engine.confetti(board.clientWidth, board.clientHeight); snd.finish();
   setStatus(`Sorted ${engine.tiles.length.toLocaleString()} files into ${S.made} folders in ${secs}s`, 'done');
   Object.values(S.cards).forEach((c, i) => {
     setCover(c);
     setTimeout(() => c.el.animate([{ boxShadow: '0 0 0 0 rgba(224,96,155,0)' }, { boxShadow: '0 0 0 4px rgba(224,96,155,.25)' }, { boxShadow: '0 0 0 0 rgba(224,96,155,0)' }], { duration: 700 }), i * 45);
   });
-  updateTools(); chord();
+  updateTools();
 }
 
 // Folder cover = the sharpest photo/video in it.
@@ -278,12 +291,13 @@ function messItUp(then) {
   if (S.phase !== 'sorted') return;
   clearSearch(false); setView('folders', false);
   S.phase = 'pile'; S.landed = S.made = S.dupes = S.freed = 0; engine.clearQueue();
+  snd.scatter(); engine.ripple(engine.pile.cx, engine.pile.cy, 0xf08bb5, 2.6);
   for (const c of Object.values(S.cards)) { c.members = []; c.n = 0; c.countEl.textContent = '0'; c.el.classList.remove('live', 'has-cover'); }
   showStats(); progress(0);
   const now = performance.now();
   engine.tiles.forEach(t => { t.card = null; engine.at(now + Math.random() * 500, m => engine.toPile(t, { now: m, dur: rnd(700, 1100) })); });
   $('#sortBtn').disabled = false; $('#sortLabel').textContent = 'Sort'; $('#resetBtn').disabled = true;
-  $('#caption').textContent = 'a total mess'; $('#hint').style.opacity = 1; updateTools();
+  setCaption('a total mess'); $('#hint').style.opacity = 1; updateTools();
   setStatus(`${engine.tiles.length.toLocaleString()} files in a pile — ready to sort`);
   if (then) setTimeout(then, 1400);
 }
@@ -334,7 +348,7 @@ window.addEventListener('pointermove', e => {
   engine.mouse = { x, y, on: S.phase === 'pile' && !S.search && e.target.closest?.('#pileArea') != null };
   if (!press?.t) return;
   if (!press.dragging && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5 && S.phase === 'sorted' && S.view === 'folders' && !S.search && press.t.card) {
-    press.dragging = true; engine.startDrag(press.t); document.body.style.cursor = 'grabbing';
+    press.dragging = true; engine.startDrag(press.t); document.body.style.cursor = 'grabbing'; snd.pickUp();
   }
   if (press.dragging) {
     engine.moveDrag(x, y);
@@ -349,14 +363,15 @@ window.addEventListener('pointerup', e => {
     const t = engine.endDrag(), el = document.querySelector('.folder.drop');
     $$('.folder.drop').forEach(x => x.classList.remove('drop'));
     const to = el && S.cards[el.dataset.id];
-    if (to && to !== t.card) teach(t, to); else engine.flyTo(t, slotPos(t), { dur: 450, lift: 0 });
+    if (to && to !== t.card) { teach(t, to); snd.drop(true); engine.sparks(t.x, t.y, to.tint, 16, 4); engine.ripple(t.x, t.y, to.tint, .8); }
+    else { engine.flyTo(t, slotPos(t), { dur: 450, lift: 0 }); snd.drop(false); }
     return;
   }
   if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 5) return;
   if (p.t) { openItem(p.t.item, p.t.card ? p.t.card.members.map(m => m.item) : [p.t.item]); return; }
   const card = e.target.closest?.('.folder');
   if (card && S.view === 'folders') { openFolder(card.dataset.id); return; }
-  if (e.target.closest?.('#pileArea') && S.phase === 'pile') { const b = boardRect(); engine.stir(e.clientX - b.left, e.clientY - b.top); }
+  if (e.target.closest?.('#pileArea') && S.phase === 'pile') { const b = boardRect(); engine.stir(e.clientX - b.left, e.clientY - b.top); snd.stir(); }
 });
 
 /* =========================================================
@@ -365,8 +380,8 @@ window.addEventListener('pointerup', e => {
 function setViewsEnabled(on) { $$('#views button').forEach(b => b.disabled = !on); }
 function setView(v, animate = true) {
   if (S.view === v) return;
-  S.view = v; board.dataset.view = v;
-  $$('#views button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  S.view = v; board.dataset.view = v; if (animate) snd.view();
+  $$('#views button').forEach(b => b.classList.toggle('on', b.dataset.view === v)); moveGlider();
   if (v !== 'folders') clearSearch(false);
   if (v === 'map') mapView.show(S.items, isDark()).catch(e => toast(e.message)); else mapView.hide();
   if (v === 'folders') $('#viewLabels').innerHTML = '';
@@ -404,6 +419,7 @@ async function runSearch(q) {
   }
   const hits = engine.tiles.filter(t => found.has(t.item)).slice(0, 120);
   S.search = { q, hits, pos: searchLayout(hits) };
+  if (hits.length) { snd.sparkle(); const p = rel(pileArea); engine.ripple(p.x + p.w / 2, p.y + p.h / 2, 0xb48cf2, 2); }
   $('#searchLabel').textContent = hits.length ? `${hits.length} match${hits.length > 1 ? 'es' : ''} for “${q}” · ${how}` : `Nothing found for “${q}”${ai.ready ? '' : ' — turn on AI sorting to search inside photos'}`;
   $('#searchLabel').classList.remove('hidden'); $('#searchClear').classList.remove('hidden');
   $('#caption').style.opacity = 0;
@@ -442,7 +458,7 @@ async function toggleAI() {
     }
     S.aiOn = true; $('#aiLabel').textContent = 'AI on';
     await embedAll();
-    btn.classList.add('on');
+    btn.classList.add('on'); snd.sparkle();
     await resort();
     setStatus('AI sorting on — photos & videos sorted by what they show', 'done');
     toast('AI on. Drag a tile to another folder to teach it.');
@@ -475,20 +491,29 @@ $('#customList').addEventListener('click', async e => {
    Folder modal + lightbox
    ========================================================= */
 let modalList = [];
-function openList(title, items, sub = '', cover = null) {
+function openList(title, items, sub = '', cover = null, origin = null) {
   modalList = items;
   $('#mTitle').textContent = title; $('#mSub').textContent = sub || `${items.length.toLocaleString()} file${items.length === 1 ? '' : 's'}`;
   $('#mCover').classList.toggle('hidden', !cover); if (cover) $('#mCover').src = cover;
-  $('#mGrid').innerHTML = items.length ? items.slice(0, 2000).map((it, i) => `<figure data-i="${i}"><img src="${urlOf(it)}" alt="" loading="lazy"><figcaption title="${esc(it.path || it.name)}">${esc(it.name)}</figcaption></figure>`).join('') : '<div class="empty">Nothing in here yet.</div>';
+  $('#mGrid').innerHTML = items.length ? items.slice(0, 2000).map((it, i) => `<figure data-i="${i}" style="--i:${i}"><img src="${urlOf(it)}" alt="" loading="lazy"><figcaption title="${esc(it.path || it.name)}">${esc(it.name)}</figcaption></figure>`).join('') : '<div class="empty">Nothing in here yet.</div>';
   $('#lightbox').classList.add('hidden');
+  const wasOpen = $('#modal').classList.contains('open');
   $('#modal').classList.add('open'); $('#modal').setAttribute('aria-hidden', 'false');
+  if (!wasOpen) {
+    // FLIP: the sheet grows out of the folder (or tile) that was clicked
+    const sheet = $('#modal .sheet'), to = sheet.getBoundingClientRect(), from = origin || { left: innerWidth / 2 - 60, top: innerHeight / 2 - 40, width: 120, height: 80 };
+    const sx = from.width / to.width, sy = from.height / to.height, dx = from.left - to.left, dy = from.top - to.top;
+    sheet.animate([{ transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})`, opacity: .2, borderRadius: '40px' }, { transform: 'none', opacity: 1, borderRadius: '24px' }],
+      { duration: 520, easing: 'cubic-bezier(.2,.9,.25,1.05)', transformOrigin: '0 0' });
+    sheet.style.transformOrigin = '0 0'; snd.open();
+  }
 }
 function openFolder(id) {
   const c = S.cards[id]; if (!c) return;
   let list = c.members.map(t => t.item), preview = !list.length;
   if (preview) list = S.items.filter(i => i.cat === id);
   const best = c.members.length ? c.el.querySelector('.fhead img').src : null;
-  openList(c.f.name, list, preview ? (list.length ? `${list.length} files will land here — hit Sort` : 'Empty folder') : null, c.el.classList.contains('has-cover') ? best : null);
+  openList(c.f.name, list, preview ? (list.length ? `${list.length} files will land here — hit Sort` : 'Empty folder') : null, c.el.classList.contains('has-cover') ? best : null, c.el.getBoundingClientRect());
 }
 $('#mGrid').addEventListener('click', e => { const f = e.target.closest('figure'); if (f) openItem(modalList[+f.dataset.i], modalList); });
 
@@ -523,7 +548,7 @@ async function openItem(it, list = [it]) {
   } else if (it.text && it.kind === 'doc') media.innerHTML = `<div style="display:grid;gap:12px;width:100%;height:100%;grid-template-rows:auto 1fr"><img src="${urlOf(it)}" alt="" style="max-height:200px;justify-self:center"><pre>${esc(it.text)}</pre></div>`;
 }
 $('#lbBack').onclick = () => $('#lightbox').classList.add('hidden');
-const closeModal = () => { $('#modal').classList.remove('open'); $('#modal').setAttribute('aria-hidden', 'true'); $('#lbMedia').innerHTML = ''; };
+const closeModal = () => { if ($('#modal').classList.contains('open')) snd.close(); $('#modal').classList.remove('open'); $('#modal').setAttribute('aria-hidden', 'true'); $('#lbMedia').innerHTML = ''; };
 $('#mClose').onclick = closeModal;
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
@@ -631,8 +656,33 @@ document.addEventListener('keydown', e => {
 $('#sortBtn').onclick = () => startSort();
 $('#resetBtn').onclick = () => messItUp();
 $('#themeBtn').onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; store.set('theme', theme); applyTheme(); };
-$('#soundBtn').innerHTML = SPK_OFF;
-$('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').innerHTML = soundOn ? SPK_ON : SPK_OFF; if (soundOn) { actx ??= new AudioContext(); actx.resume(); tick(880); } };
+$('#soundBtn').innerHTML = snd.on ? SPK_ON : SPK_OFF;
+$('#soundBtn').onclick = () => { snd.setOn(!snd.on); $('#soundBtn').innerHTML = snd.on ? SPK_ON : SPK_OFF; if (snd.on) snd.sparkle(); };
+
+/* ---------- ambient interaction: audio unlock, button ripples + ticks, spotlight, card sheen ---------- */
+document.addEventListener('pointerdown', () => snd.ensure(), { once: true });
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.btn,.seg button,.menu > button'); if (!b || b.disabled) return;
+  snd.tick();
+  if (!b.classList.contains('btn')) return;
+  const r = b.getBoundingClientRect(), size = Math.max(r.width, r.height) * 2.2, s = document.createElement('span');
+  s.className = 'ripple'; Object.assign(s.style, { width: size + 'px', height: size + 'px', left: e.clientX - r.left - size / 2 + 'px', top: e.clientY - r.top - size / 2 + 'px' });
+  b.append(s); setTimeout(() => s.remove(), 650);
+});
+let spotRaf = 0;
+window.addEventListener('pointermove', e => {
+  cancelAnimationFrame(spotRaf);
+  spotRaf = requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--sx', e.clientX + 'px'); document.documentElement.style.setProperty('--sy', e.clientY + 'px');
+    const card = e.target.closest?.('.folder');
+    if (card) { const r = card.getBoundingClientRect(); card.style.setProperty('--mx', e.clientX - r.left + 'px'); card.style.setProperty('--my', e.clientY - r.top + 'px'); }
+  });
+});
+function moveGlider() {
+  const seg = $('#views'), on = seg.querySelector('button.on'), g = seg.querySelector('.glider'); if (!on || !g) return;
+  g.style.width = on.offsetWidth + 'px'; g.style.transform = `translateX(${on.offsetLeft}px)`;
+}
+function setCaption(text) { const c = $('#caption'); c.textContent = text; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
 let rz = 0; addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => engine.tiles.length && relayout(false)); });
 document.fonts?.ready.then(() => engine.tiles.length && relayout(false));
 
@@ -643,8 +693,9 @@ document.fonts?.ready.then(() => engine.tiles.length && relayout(false));
     desktop.onNewFile(f => onNewDownload(f).catch(e => console.error('auto-sort failed', e)));
     desktop.onCommand(c => { if (c === 'load-downloads' && S.phase !== 'sorting') Files.desktopFolder('downloads').then(loadSource).catch(e => toast(e.message)); });
   } else $('#folderHint').textContent = Files.canWriteInBrowser() ? 'Can move files, with undo' : 'Read-only here — exports a script';
-  await engine.init();
+  await engine.init(); engine.setDark(isDark()); moveGlider();
+  document.fonts?.ready.then(moveGlider); addEventListener('resize', moveGlider);
   // handy for debugging in DevTools, and used by the screenshot tour (npm run screenshots)
-  window.__sorter = { S, engine, ai, startSort, setView, runSearch, clearSearch, openFolder, openItem, closeModal, toggleAI, setTheme: t => { theme = t; applyTheme(); } };
+  window.__sorter = { S, engine, ai, snd, startSort, setView, runSearch, clearSearch, openFolder, openItem, closeModal, toggleAI, setTheme: t => { theme = t; applyTheme(); } };
   await loadDemo();
 })().catch(e => { console.error(e); setStatus('Something went wrong — see the console', ''); toast(String(e.message || e), 8000); });
