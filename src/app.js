@@ -598,8 +598,17 @@ $('#replayBtn').onclick = () => { const order = S.lastOrder; messItUp(() => star
    Loading menu
    ========================================================= */
 const loadMenu = $('#loadMenu');
-$('#loadBtn').onclick = e => { e.stopPropagation(); loadMenu.classList.toggle('open'); $('#folderMenu').classList.remove('open'); };
-$('#addFolderBtn').onclick = e => { e.stopPropagation(); $('#folderMenu').classList.toggle('open'); loadMenu.classList.remove('open'); if ($('#folderMenu').classList.contains('open')) $('#folderName').focus(); };
+// keep an open menu fully on screen, whichever side of the toolbar its button ended up on
+function placeMenu(menu) {
+  menu.style.translate = '';
+  if (!menu.classList.contains('open')) return;
+  const r = menu.getBoundingClientRect(), pad = 12, vw = document.documentElement.clientWidth;
+  const dx = r.left < pad ? pad - r.left : r.right > vw - pad ? vw - pad - r.right : 0;
+  if (dx) menu.style.translate = `${dx}px 0`;
+}
+$('#loadBtn').onclick = e => { e.stopPropagation(); loadMenu.classList.toggle('open'); $('#folderMenu').classList.remove('open'); placeMenu(loadMenu); };
+$('#addFolderBtn').onclick = e => { e.stopPropagation(); $('#folderMenu').classList.toggle('open'); loadMenu.classList.remove('open'); placeMenu($('#folderMenu')); if ($('#folderMenu').classList.contains('open')) $('#folderName').focus(); };
+addEventListener('resize', () => { placeMenu(loadMenu); placeMenu($('#folderMenu')); });
 $('#folderMenu').addEventListener('click', e => e.stopPropagation());
 document.addEventListener('click', () => { loadMenu.classList.remove('open'); $('#folderMenu').classList.remove('open'); });
 loadMenu.addEventListener('click', async e => {
