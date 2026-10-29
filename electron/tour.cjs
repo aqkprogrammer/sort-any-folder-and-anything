@@ -14,7 +14,7 @@ module.exports = async function tour(outDir) {
   const shot = async name => { const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(outDir, name + '.png'), img.resize({ width: 1600, quality: 'best' }).toPNG()); console.log('captured', name); };
 
   await until("window.__sorter && __sorter.S.phase === 'pile'");
-  await js("localStorage.clear(); __sorter.S.corrections = {}; __sorter.setTheme('light')");
+  await js("localStorage.clear(); __sorter.S.corrections = {}; __sorter.setTheme('dark')");
   await sleep(1200); await shot('01-pile');
   await js('__sorter.startSort()'); await sleep(1700); await shot('02-sorting');
   await until("__sorter.S.phase === 'sorted'"); await sleep(1200); await shot('03-sorted');
@@ -25,8 +25,8 @@ module.exports = async function tour(outDir) {
   await js("document.querySelector('#searchInput').value = 'invoice'; __sorter.runSearch('invoice')"); await sleep(2200); await shot('07-search');
   await js("document.querySelector('#searchInput').value = ''; __sorter.clearSearch(true)"); await sleep(1500);
   await js("__sorter.openFolder('invoices'); const S = __sorter.S; __sorter.openItem(S.cards.invoices.members[0].item, S.cards.invoices.members.map(m => m.item))"); await sleep(1200); await shot('08-details');
-  await js('__sorter.closeModal()'); await js("__sorter.setTheme('dark')"); await sleep(1200); await shot('09-dark');
-  await js("__sorter.setTheme('light')");
+  await js('__sorter.closeModal()'); await js("__sorter.setTheme('light')"); await sleep(1200); await shot('09-light');
+  await js("__sorter.setTheme('dark')");
   if (!process.argv.includes('--no-ai')) {
     await js('__sorter.toggleAI()');
     await until("document.querySelector('#aiBtn').classList.contains('on') && __sorter.S.phase === 'sorted'", 600000);

@@ -37,7 +37,8 @@ It runs entirely on your machine. The AI that recognises what's *in* your photos
 | **Mac app** | Menu-bar icon, native file moves, **Quick Look** previews (HEIC, RAW, Pages, Keynote, PSD…), read-only **Photos library** mode, and **auto-sort for new downloads** with a notification for each file. |
 | **Sound design** | Generated live with the Web Audio API, no audio files. Each folder has its own note in a pentatonic scale, so every sort plays a unique melody, panned left or right by where the tile lands. Whooshes on take-off, a shimmer when sorting starts, a bell chord and pad when it finishes, plus small sounds for drag, drop, search and windows. All of it goes through a compressor and a synthetic reverb. |
 | **Motion** | Frame-rate-independent springs. The pile slowly swirls like a galaxy and spirals in on load. Tiles fly in arcs with a little spin, leave colour trails, and land with a damped wobble and a burst of sparks. The pile inhales before a sort, clicks send ripples, and finishing rains confetti. Folders glow in their own colour as they fill. |
-| **Polish** | WebGL rendering (smooth up to 10,000 files), drifting aurora background, cursor spotlight, glass cards with a sheen that follows the mouse, sliding view switcher, folder windows that zoom out of the card you clicked, light/dark/auto theme, Replay, keyboard shortcuts, a "Why is this here?" reason on every file. Respects *reduce motion*. |
+| **Design** | An editorial dark look built on three colours: **Midnight Black** `#030407`, **Electric Cobalt** `#1558C9` and **Acid Lime** `#D4FF24`. Big italic serif headlines, small tracked uppercase labels, lime pill buttons and a cobalt glow behind the pile. Photos glow lime, videos cobalt and documents electric cyan. A light theme uses the same palette. |
+| **Polish** | WebGL rendering (smooth up to 10,000 files), drifting aurora background, cursor spotlight, glass cards with a sheen that follows the mouse, sliding view switcher, folder windows that zoom out of the card you clicked, dark (default), light and auto themes, Replay, keyboard shortcuts, a "Why is this here?" reason on every file. Respects *reduce motion*. |
 
 <p align="center">
   <img src="docs/screenshots/04-rainbow.png" width="49%" alt="Rainbow view">
@@ -52,7 +53,7 @@ It runs entirely on your machine. The AI that recognises what's *in* your photos
   <img src="docs/screenshots/08-details.png" width="49%" alt="File details with the reason it was sorted">
 </p>
 <p align="center">
-  <img src="docs/screenshots/09-dark.png" width="80%" alt="Dark mode">
+  <img src="docs/screenshots/09-light.png" width="80%" alt="Light mode">
 </p>
 
 ---
@@ -119,7 +120,7 @@ There is no framework and no build step: plain ES modules that the browser loads
 
 | Layer | Technology | Used for |
 |---|---|---|
-| **UI** | HTML + modern CSS (custom properties, `color-mix`, grid, keyframes) | Layout, themes (light / dark / auto), aurora + grain atmosphere, glass panels, FLIP window animation |
+| **UI** | HTML + modern CSS (custom properties, `color-mix`, grid, keyframes) | Layout, the Midnight / Cobalt / Lime palette as CSS tokens, dark / light / auto themes, aurora + grain atmosphere, glass panels, FLIP window animation |
 | **Language** | Vanilla JavaScript (ES2022 modules) | All app logic, no bundler or transpiler |
 | **Rendering** | [PixiJS 8](https://pixijs.com) (WebGL) | Thousands of animated tiles, texture atlases, particle effects |
 | **AI** | [transformers.js 3](https://github.com/huggingface/transformers.js) + [CLIP ViT-B/32](https://huggingface.co/Xenova/clip-vit-base-patch32) (8-bit, WebAssembly) | Image and text embeddings for sorting by content and natural-language search |

@@ -39,8 +39,8 @@ const flash = el => { el.classList.remove('flash'); void el.offsetWidth; el.clas
 const boardPan = x => clamp(x / Math.max(1, board.clientWidth) * 2 - 1, -1, 1);
 const hex = c => parseInt(c.slice(1), 16);
 // Each folder gets its own accent: pinks/corals for photos, violets for media, blues/teals for documents.
-const SECTION_HUES = { photo: [330, 20], media: [255, 300], docs: [195, 230], stage: [345, 345] };
-function folderColor(f, i, n) { const [a, b] = SECTION_HUES[f.section] || [330, 330], h = a + (b - a) * (n > 1 ? i / (n - 1) : 0); return hslHex(h, 72, 62); }
+const SECTION_HUES = { photo: [74, 108], media: [214, 252], docs: [184, 204], stage: [74, 74] };
+function folderColor(f, i, n) { const [a, b] = SECTION_HUES[f.section] || [330, 330], h = a + (b - a) * (n > 1 ? i / (n - 1) : 0); return hslHex(h, 92, 58); }
 function hslHex(h, s, l) { s /= 100; l /= 100; const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); return '#' + [f(0), f(8), f(4)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 
 function showStats() {
@@ -59,7 +59,7 @@ const THEME_ICON = {
   light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
 };
-let theme = store.get('theme', 'auto');
+let theme = store.get('theme', 'dark');
 function applyTheme() {
   if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme;
   $('#themeBtn').innerHTML = THEME_ICON[theme]; $('#themeBtn').title = `Theme: ${theme}`;
@@ -104,6 +104,8 @@ function buildCards() {
     const el = f.id === 'dupes' ? $('#dupesCard') : document.createElement('div');
     const list = bySection[f.section], color = folderColor(f, list.indexOf(f), list.length);
     el.style.setProperty('--i', i); el.style.setProperty('--c', color);
+    const rgb = [1, 3, 5].map(k => parseInt(color.slice(k, k + 2), 16)).join(',');
+    el.style.setProperty('--cg', `rgba(${rgb},.6)`); el.style.setProperty('--cg0', `rgba(${rgb},0)`);
     el.className = 'folder' + (f.id === 'dupes' ? ' dupes' : '') + (f.custom ? ' custom' : '');
     el.dataset.id = f.id;
     el.innerHTML = `<div class="fhead">${FOLDER_SVG}<img alt=""><span class="fname">${esc(f.name)}</span><span class="count">0</span></div><div class="thumbs"></div>`;
@@ -232,7 +234,7 @@ function startSort(order) {
   for (const c of Object.values(S.cards)) { c.members = []; c.n = 0; c.countEl.textContent = '0'; c.el.classList.remove('live', 'has-cover'); }
   $('#sortBtn').classList.add('running'); $('#sortLabel').textContent = 'Sorting'; $('#sortBtn').disabled = true; $('#resetBtn').disabled = true;
   setViewsEnabled(false); stage.classList.add('sorting'); setCaption('sorting it out…'); $('#hint').style.opacity = 0;
-  engine.inhale(.5, 420); engine.ripple(engine.pile.cx, engine.pile.cy, 0xb48cf2, 2.2); snd.sortStart();
+  engine.inhale(.5, 420); engine.ripple(engine.pile.cx, engine.pile.cy, 0x4d8bff, 2.2); snd.sortStart();
   measure();
   const tiles = order || shuffle([...engine.tiles]); S.lastOrder = tiles;
   const gap = clamp(4600 / tiles.length, .35, 24), t0 = performance.now() + 520;
@@ -275,7 +277,7 @@ function finishSort() {
   setStatus(`Sorted ${engine.tiles.length.toLocaleString()} files into ${S.made} folders in ${secs}s`, 'done');
   Object.values(S.cards).forEach((c, i) => {
     setCover(c);
-    setTimeout(() => c.el.animate([{ boxShadow: '0 0 0 0 rgba(224,96,155,0)' }, { boxShadow: '0 0 0 4px rgba(224,96,155,.25)' }, { boxShadow: '0 0 0 0 rgba(224,96,155,0)' }], { duration: 700 }), i * 45);
+    setTimeout(() => { const g = c.el.style.getPropertyValue('--cg'), g0 = c.el.style.getPropertyValue('--cg0'); c.el.animate([{ boxShadow: `0 0 0 0 ${g0}` }, { boxShadow: `0 0 0 4px ${g}` }, { boxShadow: `0 0 0 0 ${g0}` }], { duration: 700 }); }, i * 45);
   });
   updateTools();
 }
@@ -291,7 +293,7 @@ function messItUp(then) {
   if (S.phase !== 'sorted') return;
   clearSearch(false); setView('folders', false);
   S.phase = 'pile'; S.landed = S.made = S.dupes = S.freed = 0; engine.clearQueue();
-  snd.scatter(); engine.ripple(engine.pile.cx, engine.pile.cy, 0xf08bb5, 2.6);
+  snd.scatter(); engine.ripple(engine.pile.cx, engine.pile.cy, 0xd4ff24, 2.6);
   for (const c of Object.values(S.cards)) { c.members = []; c.n = 0; c.countEl.textContent = '0'; c.el.classList.remove('live', 'has-cover'); }
   showStats(); progress(0);
   const now = performance.now();
@@ -419,7 +421,7 @@ async function runSearch(q) {
   }
   const hits = engine.tiles.filter(t => found.has(t.item)).slice(0, 120);
   S.search = { q, hits, pos: searchLayout(hits) };
-  if (hits.length) { snd.sparkle(); const p = rel(pileArea); engine.ripple(p.x + p.w / 2, p.y + p.h / 2, 0xb48cf2, 2); }
+  if (hits.length) { snd.sparkle(); const p = rel(pileArea); engine.ripple(p.x + p.w / 2, p.y + p.h / 2, 0x4d8bff, 2); }
   $('#searchLabel').textContent = hits.length ? `${hits.length} match${hits.length > 1 ? 'es' : ''} for “${q}” · ${how}` : `Nothing found for “${q}”${ai.ready ? '' : ' — turn on AI sorting to search inside photos'}`;
   $('#searchLabel').classList.remove('hidden'); $('#searchClear').classList.remove('hidden');
   $('#caption').style.opacity = 0;

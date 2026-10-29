@@ -170,7 +170,7 @@ function showWindow() { if (!win) createWindow(); win.show(); win.focus(); }
 function createWindow() {
   win = new BrowserWindow({
     width: 1480, height: 940, minWidth: 980, minHeight: 700, show: false, title: 'Photo Sorter',
-    titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: '#f7f1f4',
+    titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: '#030407',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
   win.loadURL('app://bundle/index.html');

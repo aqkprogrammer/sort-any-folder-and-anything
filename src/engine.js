@@ -12,7 +12,7 @@ import { clamp, lerp, rnd, easeInOut } from './util.js';
 const ATLAS_W = 2048;
 const pot = n => 2 ** Math.ceil(Math.log2(Math.max(2, n)));
 const MAX_PARTICLES = 1400;
-const CONFETTI = [0xf08bb5, 0xb48cf2, 0xf7b48a, 0x7dd3fc, 0x86efac, 0xfde047, 0xc2457e];
+const CONFETTI = [0xd4ff24, 0x1558c9, 0x3fd9ff, 0xffffff, 0x7aa2ff, 0xb8f000, 0x2f6fe8];
 
 function makeTexture(size, draw) {
   const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);
@@ -75,7 +75,7 @@ export class Engine {
   newTile(item, tex, x, y) {
     const sp = new Sprite(tex); sp.anchor.set(.5);
     const t = { item, sprite: sp, x, y, r: rnd(-60, 60), s: .2, vx: 0, vy: 0, a: Math.random() * Math.PI * 2, rf: Math.sqrt(Math.random()), hr: rnd(-28, 28),
-      ph: Math.random() * 6.28, state: 'pile', alpha: 1, ta: 1, wob: 0, spin: 0, color: 0xf08bb5, activeAt: 0 };
+      ph: Math.random() * 6.28, state: 'pile', alpha: 1, ta: 1, wob: 0, spin: 0, color: 0xd4ff24, activeAt: 0 };
     sp.tile = t; return t;
   }
 
@@ -146,7 +146,7 @@ export class Engine {
       const dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy) || 1;
       if (d < 200) { const f = (200 - d) / 200 * 30; t.vx += dx / d * f + rnd(-6, 6); t.vy += dy / d * f + rnd(-6, 6); t.r += rnd(-50, 50); }
     }
-    this.ripple(x, y, 0xc2457e, 1.2); this.sparks(x, y, 0xf08bb5, 14, 5);
+    this.ripple(x, y, 0x4d8bff, 1.2); this.sparks(x, y, 0xd4ff24, 14, 5);
   }
 
   hit(x, y, pred = () => true) {
@@ -183,7 +183,7 @@ export class Engine {
       this.emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, color, size: rnd(5, 11), life: rnd(380, 700), tex: i % 3 ? 'dot' : 'star', vr: rnd(-.2, .2), drag: .92, g: .04 });
     }
   }
-  ripple(x, y, color = 0xc2457e, scale = 1) { this.emit({ x, y, tex: 'ring', color, size: 30 * scale, grow: 5.5 * scale, life: 650, alpha: .7, drag: 1, force: true }); }
+  ripple(x, y, color = 0x4d8bff, scale = 1) { this.emit({ x, y, tex: 'ring', color, size: 30 * scale, grow: 5.5 * scale, life: 650, alpha: .7, drag: 1, force: true }); }
   confetti(w, h) {
     for (let i = 0; i < 170; i++) {
       this.emit({ x: rnd(w * .1, w * .9), y: rnd(-80, -10), vx: rnd(-2.5, 2.5), vy: rnd(1, 5), g: .09, drag: .985, color: CONFETTI[i % CONFETTI.length],
@@ -238,7 +238,7 @@ export class Engine {
       } else if (t.state === 'drag' && this.drag?.t === t) {
         const f = 1 - Math.pow(.65, dt);
         t.x += (this.drag.x - t.x) * f; t.y += (this.drag.y - t.y) * f; t.s += (Math.max(1.35, 46 / T) - t.s) * f * .6; t.r += (-6 - t.r) * f * .6;
-        if (!this.calm && Math.random() < .35 * dt) this.emit({ x: t.x, y: t.y, color: 0xb48cf2, size: 14, life: 380, alpha: .5, front: false });
+        if (!this.calm && Math.random() < .35 * dt) this.emit({ x: t.x, y: t.y, color: 0x4d8bff, size: 14, life: 380, alpha: .5, front: false });
       }
       let s = t.s;
       if (t.wob > .005) { t.wob *= Math.pow(.9, dt); s *= 1 + .26 * t.wob * Math.sin((1 - t.wob) * 22); }
