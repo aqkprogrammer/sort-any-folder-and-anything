@@ -1,5 +1,11 @@
 # Sort any folder (and anything) ✦
 
+[![Live demo](https://img.shields.io/badge/live%20demo-open-8b5cf6?style=for-the-badge)](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)
+[![Deploy to GitHub Pages](https://github.com/aqkprogrammer/sort-any-folder-and-anything/actions/workflows/pages.yml/badge.svg)](https://github.com/aqkprogrammer/sort-any-folder-and-anything/actions/workflows/pages.yml)
+![Platform](https://img.shields.io/badge/web%20%2B%20macOS-black?logo=apple)
+
+**▶ Try it now: [aqkprogrammer.github.io/sort-any-folder-and-anything](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)**: the demo folder loads instantly, press **Sort**.
+
 **Photo Sorter** turns a messy folder into a tidy one, and lets you watch it happen. Photos, videos, music, voice memos, PDFs, Word/Excel/PowerPoint files, code, archives, installers: every file becomes a tile in a floating pile. Press **Sort** and each tile flies into its folder.
 
 It runs entirely on your machine. The AI that recognises what's *in* your photos runs in the browser (or the Mac app). Nothing is uploaded.
@@ -54,6 +60,8 @@ It runs entirely on your machine. The AI that recognises what's *in* your photos
 
 ### 1. In the browser (no install)
 
+Just open the **[live demo](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)**. Or run it locally:
+
 ```bash
 git clone https://github.com/aqkprogrammer/sort-any-folder-and-anything.git
 cd sort-any-folder-and-anything
@@ -66,7 +74,7 @@ To sort your own files: **Open → Choose a folder…**
 - **Chrome / Edge / Arc** can move files (File System Access API) and undo.
 - **Safari / Firefox** are read-only. Use **Export script** to get `sort-files.sh`, which prints what it would do; run it with `DRY_RUN=0` to actually move.
 
-> The page must be served over `http://localhost` (not opened as a `file://`) because it uses ES modules and Web Workers.
+> The page must be served over `http://localhost` or HTTPS (not opened as a `file://`) because it uses ES modules and Web Workers.
 
 ### 2. As a Mac app
 
@@ -82,7 +90,142 @@ In the app, **Open** also offers **My Downloads** and **Photos library** (read-o
 
 ---
 
-## How it works
+## Deployment
+
+The web app is plain static files (`index.html` + `src/`), with no build step. Any static host works; it only needs **HTTPS** (for the File System Access API, Web Workers and WebAssembly).
+
+| Where | How |
+|---|---|
+| **GitHub Pages** (live) | Already set up. [`.github/workflows/pages.yml`](.github/workflows/pages.yml) publishes `index.html` + `src/` on every push to `main` → **https://aqkprogrammer.github.io/sort-any-folder-and-anything/** |
+| **Netlify** | Drag the repo folder onto [app.netlify.com/drop](https://app.netlify.com/drop), or connect the repo with publish directory `.` and no build command. |
+| **Vercel** | `npx vercel --prod` in the repo root (framework preset: *Other*, no build command). |
+| **Cloudflare Pages** | Connect the repo, build command empty, output directory `/`. |
+| **Mac app** | `npm run dist` builds `dist/Photo Sorter-<version>-arm64.dmg`. Attach it to a [GitHub Release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases). It is unsigned, so the first launch needs right-click → **Open**. |
+
+What the hosted version can and can't do:
+- Everything runs in the visitor's browser. Their files never reach the server; the host only serves the code.
+- The CLIP model (~150 MB) is downloaded from the Hugging Face CDN the first time AI is switched on, then cached by the browser.
+- Moving real files on disk works in Chrome / Edge / Arc. Safari and Firefox are read-only and use **Export script**.
+- Downloads auto-sort, Quick Look previews and the Photos library are Mac-app only.
+
+## Tech stack
+
+There is no framework and no build step: plain ES modules that the browser loads directly. Libraries come from CDNs at pinned versions.
+
+| Layer | Technology | Used for |
+|---|---|---|
+| **UI** | HTML + modern CSS (custom properties, `color-mix`, grid, keyframes) | Layout, themes (light / dark / auto), aurora + grain atmosphere, glass panels, FLIP window animation |
+| **Language** | Vanilla JavaScript (ES2022 modules) | All app logic, no bundler or transpiler |
+| **Rendering** | [PixiJS 8](https://pixijs.com) (WebGL) | Thousands of animated tiles, texture atlases, particle effects |
+| **AI** | [transformers.js 3](https://github.com/huggingface/transformers.js) + [CLIP ViT-B/32](https://huggingface.co/Xenova/clip-vit-base-patch32) (8-bit, WebAssembly) | Image and text embeddings for sorting by content and natural-language search |
+| **Concurrency** | Web Workers | Runs CLIP off the main thread, so the animation never stutters |
+| **Documents** | [pdf.js 4](https://mozilla.github.io/pdf.js/), a tiny ZIP reader on `DecompressionStream` | PDF first page + text; text from `.docx/.xlsx/.pptx` |
+| **Photo metadata** | [exifr 7](https://github.com/MikeKovarik/exifr) | Capture date and GPS for Timeline and Map |
+| **Audio** | Web Audio API | Real waveforms (`decodeAudioData`) and all generated sound effects (no audio files) |
+| **Map** | [Leaflet 1.9](https://leafletjs.com) + [OpenStreetMap](https://www.openstreetmap.org/copyright) tiles | Photos placed by GPS |
+| **Storage** | IndexedDB, localStorage | Cached AI embeddings, preferences, corrections and learned examples |
+| **File access** | File System Access API, `webkitdirectory` fallback | Reading folders and moving files (with undo) in the browser |
+| **Desktop** | [Electron 45](https://www.electronjs.org), Node `fs`, macOS `qlmanage` | Mac app: native moves, Quick Look thumbnails, tray icon, Downloads watcher |
+| **Packaging** | electron-builder | `.dmg` for Apple Silicon |
+| **Hosting / CI** | GitHub Pages + GitHub Actions | Live web version, deployed on every push |
+
+---
+
+## Architecture
+
+The app has four layers. Each module only talks to the layer next to it, so the same core runs both in a browser tab and inside the Mac app.
+
+```mermaid
+flowchart TB
+  subgraph Runtime["Where it runs"]
+    direction LR
+    W["Browser tab<br/>(GitHub Pages / localhost)"]
+    M["Mac app (Electron)<br/>main.cjs ⇄ preload.cjs ⇄ page"]
+  end
+
+  subgraph Sources["1 · Sources: files.js · demo.js"]
+    S1[Demo folder<br/>drawn on canvas]
+    S2[Folder picked in the browser]
+    S3[Folder / Downloads / Photos<br/>via the desktop bridge]
+  end
+
+  subgraph Understand["2 · Understanding: analyze.js · ai.js · ai-worker.js"]
+    U1[Thumbnail + colour + hashes + sharpness]
+    U2[Text from PDF / Office / plain text]
+    U3[EXIF date + GPS]
+    U4[CLIP embeddings<br/>in a Web Worker, cached in IndexedDB]
+  end
+
+  subgraph Decide["3 · Decisions: folders.js · app.js"]
+    D1[Duplicates & junk]
+    D2[Rules + document topics]
+    D3[AI folder match]
+    D4[Your corrections + learned examples]
+  end
+
+  subgraph Present["4 · Presentation: engine.js · views.js · sound.js · styles.css"]
+    P1[PixiJS stage<br/>pile · flights · particles]
+    P2[Folders · Rainbow · Timeline · Map]
+    P3[Generated sound]
+  end
+
+  Act["files.js · move into Sorted/… · undo · export script"]
+
+  Runtime --> Sources --> Understand --> Decide --> Present
+  Present -- drag to teach --> D4
+  Present --> Act
+```
+
+**Module responsibilities**
+
+| Module | Responsibility |
+|---|---|
+| `app.js` | The conductor. Holds the state, loads a source, runs analysis in parallel (6 files at a time), classifies, builds the folder cards and choreographs the sort. Also handles views, search, drag-to-teach, windows, moves and keyboard shortcuts. |
+| `engine.js` | Motion only. Knows nothing about files, only tiles with a target position. Springs, flight arcs, the swirling pile, particles, hit-testing and dragging. |
+| `analyze.js` | Turns a file into numbers: a 176 px preview, colour statistics, a perceptual hash, a 24×24 fingerprint, a sharpness score, EXIF and extracted text. Also finds duplicates and junk. |
+| `folders.js` | The folder catalogue and the rule-based classifier (file type → family → folder, document keyword topics, colour moods). |
+| `ai.js` / `ai-worker.js` | Loads CLIP in a worker, embeds images and text, matches files to folders, powers search and learns from your corrections. |
+| `views.js` | Layout maths for Rainbow and Timeline, and the Leaflet map. |
+| `files.js` | Reading folders (browser, picker or desktop), moving files safely with undo, and the shell-script export. |
+| `sound.js` | A tiny synthesiser: compressor + generated reverb, with pluck, bell, whoosh and pad instruments. |
+| `electron/*` | The Mac shell: custom protocols, a path-checked IPC bridge, Quick Look, tray and Downloads watcher. |
+
+### What happens when you press Sort
+
+```mermaid
+sequenceDiagram
+  actor You
+  participant App as app.js
+  participant Eng as engine.js
+  participant Snd as sound.js
+  participant UI as Folder cards
+
+  You->>App: Sort (Space)
+  App->>Eng: inhale(): pile pulls in tight
+  App->>Snd: sortStart(): rising whoosh + bells
+  loop every tile, staggered by section and folder
+    App->>Eng: flyTo(tile, folder slot)
+    Eng-->>Snd: launch(): small whoosh, panned
+    Eng->>Eng: arc with spin, colour trail
+    Eng-->>App: landed
+    App->>Eng: sparks + wobble
+    App->>Snd: land(folder): that folder's note
+    App->>UI: count bump + glow
+  end
+  App->>Eng: confetti
+  App->>Snd: finish(): bell chord + pad
+```
+
+### How the AI works
+
+1. Clicking **AI sorting** starts a Web Worker that downloads CLIP (~150 MB, once) and runs it with WebAssembly.
+2. Every folder has a few text prompts, for example *Pets*: "a photo of a cat", "a photo of a dog", "a cute pet". CLIP turns them into vectors, and the folder's vector is their average.
+3. Each photo, and one frame of each video, is turned into a vector too. These are cached in IndexedDB by name, size and date, so a second run is instant.
+4. A file goes to the folder whose vector is closest (cosine similarity, softmax confidence).
+5. **Search** embeds "a photo of *your words*" and flies the closest matches to the centre. **Your own folders** are just new prompts.
+6. When you drag a file somewhere else, its vector is saved as an example. Files very similar to it (≥ 0.9) follow the example from then on.
+
+## The analysis pipeline
 
 ```mermaid
 flowchart LR
@@ -135,9 +278,19 @@ flowchart LR
 
 Every file keeps the **reason** it was placed, shown in the details panel.
 
-### Rendering
+### Rendering and motion
 
-All tiles are drawn by **PixiJS (WebGL)**. Thumbnails, with their rounded corners, white border and shadow baked in, are packed into 2048 px texture atlases with mipmaps, so thousands of tiles draw in a handful of draw calls. The engine (`src/engine.js`) only does motion: a spring for the pile (with hover repulsion and "stir"), quadratic-Bézier tweens for flights, and a drag state. `src/app.js` decides every target position.
+All tiles are drawn by **PixiJS (WebGL)**. Thumbnails, with their rounded corners, white border and shadow baked in, are packed into 2048 px texture atlases with mipmaps, so thousands of tiles draw in a handful of draw calls.
+
+The engine (`src/engine.js`) only does motion. `src/app.js` decides every target position.
+- **The pile** is a set of springs that slowly swirl like a galaxy, push away from the cursor and ripple when clicked.
+- **Flights** are quadratic-Bézier arcs with a little spin, a colour trail and a springy wobble on landing.
+- **Particles** (sparks, rings, confetti) come from a pooled set of up to 1,400 sprites, so nothing is allocated during a sort.
+- Physics is scaled by elapsed time, so it runs at the same speed at 60 Hz and 120 Hz. With *Reduce motion* on, trails, swirl and confetti are switched off.
+
+### Sound
+
+`src/sound.js` generates every sound with the Web Audio API, so there are no audio files. Everything goes through a compressor and a reverb built from generated noise. Each folder has its own note in a pentatonic scale, so any order of landings sounds like a melody, and each note is panned to where the tile lands.
 
 ### Privacy and safety
 
@@ -168,6 +321,9 @@ electron/
   preload.cjs         the window.desktop bridge
   tour.cjs            scripted screenshot capture
 scripts/serve.py      no-cache static server for the web version
+docs/screenshots/     images used in this README (npm run screenshots)
+.github/workflows/
+  pages.yml           deploys the web app to GitHub Pages
 ```
 
 ## Keyboard
