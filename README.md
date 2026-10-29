@@ -2,9 +2,10 @@
 
 [![Live demo](https://img.shields.io/badge/live%20demo-open-8b5cf6?style=for-the-badge)](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)
 [![Deploy to GitHub Pages](https://github.com/aqkprogrammer/sort-any-folder-and-anything/actions/workflows/pages.yml/badge.svg)](https://github.com/aqkprogrammer/sort-any-folder-and-anything/actions/workflows/pages.yml)
-![Platform](https://img.shields.io/badge/web%20%2B%20macOS-black?logo=apple)
+[![Download for Mac](https://img.shields.io/github/v/release/aqkprogrammer/sort-any-folder-and-anything?label=download%20for%20Mac&logo=apple&style=for-the-badge&color=111)](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest)
 
 **▶ Try it now: [aqkprogrammer.github.io/sort-any-folder-and-anything](https://aqkprogrammer.github.io/sort-any-folder-and-anything/)**: the demo folder loads instantly, press **Sort**.
+**⬇ Mac app:** [Photo-Sorter-2.0.0-arm64.dmg](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/download/v2.0.0/Photo-Sorter-2.0.0-arm64.dmg) (Apple Silicon, 115 MB).
 
 **Photo Sorter** turns a messy folder into a tidy one, and lets you watch it happen. Photos, videos, music, voice memos, PDFs, Word/Excel/PowerPoint files, code, archives, installers: every file becomes a tile in a floating pile. Press **Sort** and each tile flies into its folder.
 
@@ -78,6 +79,10 @@ To sort your own files: **Open → Choose a folder…**
 
 ### 2. As a Mac app
 
+**Download:** grab the `.dmg` from the [latest release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest), open it and drag **Photo Sorter** into Applications. The app isn't signed or notarized, so the first time, right-click it → **Open** → **Open** (or run `xattr -dr com.apple.quarantine "/Applications/Photo Sorter.app"`).
+
+**Or build it from source:**
+
 ```bash
 npm install
 npm start                 # launches the Electron app
@@ -100,7 +105,7 @@ The web app is plain static files (`index.html` + `src/`), with no build step. A
 | **Netlify** | Drag the repo folder onto [app.netlify.com/drop](https://app.netlify.com/drop), or connect the repo with publish directory `.` and no build command. |
 | **Vercel** | `npx vercel --prod` in the repo root (framework preset: *Other*, no build command). |
 | **Cloudflare Pages** | Connect the repo, build command empty, output directory `/`. |
-| **Mac app** | `npm run dist` builds `dist/Photo Sorter-<version>-arm64.dmg`. Attach it to a [GitHub Release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases). It is unsigned, so the first launch needs right-click → **Open**. |
+| **Mac app** (released) | `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist` builds an unsigned `dist/Photo Sorter-<version>-arm64.dmg`. Attach it to a [GitHub Release](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest) with `gh release create vX.Y.Z <dmg>`. The current build is on [v2.0.0](https://github.com/aqkprogrammer/sort-any-folder-and-anything/releases/latest). |
 
 What the hosted version can and can't do:
 - Everything runs in the visitor's browser. Their files never reach the server; the host only serves the code.
