@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photo Sorter</title>
+<meta name="description" content="Watch a messy folder of photos, videos and documents sort itself — on-device AI, no uploads.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f08bb5'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='7' width='26' height='20' rx='5' fill='url(%23g)'/%3E%3Crect x='3' y='5' width='11' height='6' rx='2.5' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="avatar">Q</div>
+      <div>
+        <div class="kicker"><b>Photo Studio</b> · <span class="accent">smart sorting</span> <span class="badge" id="envBadge"></span></div>
+        <h1>Sorting my <em id="libName">Downloads</em> <span id="libWord">folder</span></h1>
+      </div>
+    </div>
+    <div class="actions">
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">Getting ready…</span></div>
+      <button class="btn ai" id="aiBtn" title="Sort photos & videos by what's in them, with a CLIP model running on your device">
+        <span class="spark">✦</span><span id="aiLabel">AI sorting</span>
+      </button>
+      <div class="menu-wrap">
+        <button class="btn" id="loadBtn" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><path d="M12 11v6M9 14l3-3 3 3"/></svg>
+          <span>Open</span>
+        </button>
+        <div class="menu" id="loadMenu" role="menu">
+          <button data-load="folder" role="menuitem"><b>Choose a folder…</b><small id="folderHint">Any folder on your Mac</small></button>
+          <button data-load="downloads" class="desk-only" role="menuitem"><b>My Downloads</b><small>Also auto-sorts new downloads</small></button>
+          <button data-load="photos" class="desk-only" role="menuitem"><b>Photos library</b><small>Read-only — never modified</small></button>
+          <button data-load="demo" role="menuitem"><b>Demo Downloads</b><small>~400 made-up files</small></button>
+        </div>
+        <input type="file" id="picker" webkitdirectory multiple hidden>
+      </div>
+      <button class="btn icon" id="themeBtn" title="Theme"></button>
+      <button class="btn icon" id="soundBtn" title="Sound"></button>
+      <button class="btn" id="resetBtn" title="Throw everything back into the pile (R)" disabled>Mess it up</button>
+      <button class="btn primary" id="sortBtn" title="Sort (Space)" disabled><span class="orb"></span><span id="sortLabel">Sort</span></button>
+    </div>
+  </header>
+
+  <section class="stats glass">
+    <div class="stat"><label>Total files</label><b id="sTotal">0</b></div>
+    <div class="stat"><label><i class="d p"></i>Photos</label><b id="sPhotos">0</b></div>
+    <div class="stat"><label><i class="d v"></i>Videos & audio</label><b id="sMedia">0</b></div>
+    <div class="stat"><label><i class="d doc"></i>Documents</label><b id="sDocs">0</b></div>
+    <div class="stat"><label>Folders created</label><b id="sFolders">0</b></div>
+    <div class="stat"><label>Duplicates found</label><b id="sDupes">0</b></div>
+    <div class="stat"><label>Can free up</label><b id="sFree">0 MB</b></div>
+    <div class="progress" id="progress"></div>
+  </section>
+
+  <nav class="toolbar">
+    <div class="seg" id="views" role="tablist">
+      <button data-view="folders" class="on" role="tab">Folders</button>
+      <button data-view="rainbow" role="tab">Rainbow</button>
+      <button data-view="timeline" role="tab">Timeline</button>
+      <button data-view="map" role="tab">Map</button>
+    </div>
+    <form class="search" id="searchForm" autocomplete="off">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
+      <input id="searchInput" placeholder="Search files…  try “invoice”, “sunset” or “cat” (/)" aria-label="Search">
+      <button type="button" id="searchClear" class="hidden" aria-label="Clear search">✕</button>
+    </form>
+    <div class="tools">
+      <div class="menu-wrap">
+        <button class="btn sm" id="addFolderBtn" title="Create your own folder — the AI fills it">＋ Folder</button>
+        <div class="menu wide" id="folderMenu">
+          <form id="folderForm"><input id="folderName" placeholder="e.g. Receipts, My dog, Wedding" maxlength="40"><button class="btn sm primary-sm">Add</button></form>
+          <small class="muted">Photos & videos go here by what they show (needs AI). Documents go here when their name or text mentions it.</small>
+          <div id="customList"></div>
+        </div>
+      </div>
+      <button class="btn sm hidden" id="replayBtn" title="Replay the sort">↻ Replay</button>
+      <button class="btn sm hidden" id="exportBtn" title="Download a script that moves the files">Export script</button>
+      <button class="btn sm dark hidden" id="applyBtn" title="Move the files on disk into these folders">Move files</button>
+      <button class="btn sm hidden" id="undoBtn" title="Put every file back where it was">Undo moves</button>
+    </div>
+  </nav>
+
+  <main class="board" id="board" data-view="folders">
+    <section class="col photo">
+      <div class="col-label"><i class="d p"></i>Photos</div>
+      <div class="folders two" id="photoFolders"></div>
+    </section>
+    <section class="stage" id="stage">
+      <div class="pile-area" id="pileArea">
+        <div class="pile-glow"></div>
+        <div class="scanring"></div>
+        <div class="hint" id="hint">hover to nudge · click to stir</div>
+        <div class="search-label hidden" id="searchLabel"></div>
+      </div>
+      <div class="caption" id="caption">a total mess</div>
+      <div class="folder dupes" id="dupesCard"></div>
+    </section>
+    <section class="col media">
+      <div class="col-label"><i class="d v"></i>Videos & audio</div>
+      <div class="folders" id="mediaFolders"></div>
+    </section>
+    <section class="col docs">
+      <div class="col-label"><i class="d doc"></i>Documents</div>
+      <div class="folders two" id="docFolders"></div>
+    </section>
+    <div class="view-labels" id="viewLabels"></div>
+    <div class="layer" id="layer"></div>
+    <div class="map-view hidden" id="mapView"></div>
+    <div class="loading hidden" id="loading"><div class="ring"></div><span id="loadingText">Reading files…</span></div>
+  </main>
+</div>
+
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header><img class="m-cover hidden" id="mCover" alt=""><h2 id="mTitle">Folder</h2><span class="sub" id="mSub"></span><button class="close" id="mClose" aria-label="Close">✕</button></header>
+    <div class="grid" id="mGrid"></div>
+    <div class="lightbox hidden" id="lightbox">
+      <button class="back" id="lbBack">← Back</button>
+      <div class="lb-media" id="lbMedia"></div>
+      <aside class="lb-info">
+        <h3 id="lbName"></h3>
+        <dl id="lbMeta"></dl>
+        <label class="lb-move">Move to <select id="lbMove"></select></label>
+        <button class="btn sm hidden" id="lbReveal">Show in Finder</button>
+      </aside>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
